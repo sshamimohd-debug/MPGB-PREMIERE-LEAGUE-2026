@@ -639,11 +639,25 @@ document.querySelectorAll("[data-extra]").forEach(btn=>{
     const names = requireNames();
     if(!names) return;
     const x = btn.getAttribute("data-extra");
-    if(x==="wd") await safeAddBall({ type:"WD", runs:1, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
-    if(x==="nb") await safeAddBall({ type:"NB", runs:1, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
+    if(x==="wd"){
+      const total = Math.max(1, Number(prompt("Wide total runs? (min 1)", "1") || 1));
+      await safeAddBall({ type:"WD", runs:total, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
+    }
+    if(x==="nb"){
+      const total = Math.max(1, Number(prompt("No-ball total runs? (min 1)\nExample: NB+4 = 5", "1") || 1));
+      let batRuns = 0;
+      if(total>1 && confirm("NB par bat se runs hue the? (OK=yes / Cancel=no)")){
+        batRuns = Math.max(0, Math.min(total-1, Number(prompt("Bat runs on NB? (0-"+(total-1)+")", String(total-1)) || (total-1))));
+      }
+      await safeAddBall({ type:"NB", runs:total, batRuns, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
+    }
     if(x==="bye"){
-      const r = Number(prompt("Bye runs?", "1") || 1);
+      const r = Math.max(0, Number(prompt("Bye runs?", "1") || 1));
       await safeAddBall({ type:"BYE", runs:r, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
+    }
+    if(x==="lb"){
+      const r = Math.max(0, Number(prompt("Leg-bye runs?", "1") || 1));
+      await safeAddBall({ type:"LB", runs:r, batter:names.batter, nonStriker:names.nonStriker, bowler:names.bowler });
     }
   });
 });

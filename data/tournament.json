@@ -212,6 +212,33 @@
       "time": "15:15",
       "a": "Chhatarpur",
       "b": "Damoh"
+    },
+    {
+      "matchId": "FNL",
+      "group": "KO",
+      "stage": "F",
+      "time": "18:30",
+      "a": "TBD (SF1W)",
+      "b": "TBD (SF2W)",
+      "label": "Final"
+    },
+    {
+      "matchId": "SF1",
+      "group": "KO",
+      "stage": "SF",
+      "time": "16:30",
+      "a": "TBD (A1)",
+      "b": "TBD (C1)",
+      "label": "Semi Final 1"
+    },
+    {
+      "matchId": "SF2",
+      "group": "KO",
+      "stage": "SF",
+      "time": "17:30",
+      "a": "TBD (B1)",
+      "b": "TBD (D1)",
+      "label": "Semi Final 2"
     }
   ],
   "squads": {
@@ -589,5 +616,6 @@
       "Ujjain Player 14",
       "Ujjain Player 15"
     ]
-  }
+  },
+  "superOverOvers": 1
 }

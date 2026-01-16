@@ -109,7 +109,9 @@ function oversTextFromBalls(balls){
 function updateSummary(st){
   const idx = Number(st.inningsIndex||0);
   const inn = normalizeInnings(st.innings[idx] || emptyInnings("", ""));
-  const oversText = `${oversTextFromBalls(inn.balls)}/${st.oversPerInnings||10}`;
+  const inSuper = Number(st.inningsIndex||0) >= 2;
+  const oversLimit = inSuper ? Number(st.superOverOvers||1) : Number(st.oversPerInnings||10);
+  const oversText = `${oversTextFromBalls(inn.balls)}/${oversLimit}`;
   const rr = inn.balls > 0 ? ((inn.runs*6)/inn.balls) : 0;
 
   st.summary = st.summary || {};
@@ -154,17 +156,46 @@ export function applyBall(state, ball){
   let legal = true;
   let addRunsToTotal = 0;
 
+  // Extras handling
+  // Convention:
+  //  - WD / NB: ball.runs means TOTAL runs to add for the delivery (minimum 1).
+  //    Example: wide that goes for 3 total -> type:'WD', runs:3
+  //    Example: no-ball + 4 off the bat -> type:'NB', runs:5, batRuns:4
+  //  - BYE / LB / RUN: ball.runs are the runs added (legal delivery).
+
+  let illegalRunningRuns = 0; // runs taken (excluding the 1-run penalty on WD/NB) used for strike swap
+
   if(type === "WD"){
     legal = false;
-    inn.extras.wd += 1;
-    if(bowl) bowl.wd += 1;
-    addRunsToTotal = 1;
+    const total = Math.max(1, Number(runsIn||0));
+    illegalRunningRuns = Math.max(0, total - 1);
+    inn.extras.wd += total;
+    if(bowl) bowl.wd += total;
+    addRunsToTotal = total;
   } else if(type === "NB"){
     legal = false;
+    const total = Math.max(1, Number(runsIn||0));
+    illegalRunningRuns = Math.max(0, total - 1);
     inn.extras.nb += 1;
     if(bowl) bowl.nb += 1;
-    addRunsToTotal = 1;
+    addRunsToTotal = total;
+
+    // Optional: credit bat runs on no-ball
+    const batRuns = Math.max(0, Number(ball.batRuns||0));
+    if(bat && batRuns>0){
+      bat.r += batRuns;
+      if(batRuns === 4) bat.f4 += 1;
+      if(batRuns === 6) bat.f6 += 1;
+    }
+    // Remaining runs (other than batRuns) treat as byes for simplicity
+    const other = Math.max(0, illegalRunningRuns - batRuns);
+    if(other>0) inn.extras.b += other;
+  } else if(type === "LB"){
+    legal = true;
+    inn.extras.lb += runsIn;
+    addRunsToTotal = runsIn;
   } else if(type === "BYE"){
+
     legal = true;
     inn.extras.b += runsIn;
     addRunsToTotal = runsIn;
@@ -177,6 +208,13 @@ export function applyBall(state, ball){
 
   inn.runs += addRunsToTotal;
   if(bowl) bowl.r += addRunsToTotal;
+
+  // Strike swap on illegal deliveries (runs taken between wickets only)
+  if(!legal && (type === "WD" || type === "NB") && (illegalRunningRuns % 2 === 1)){
+    const tmp = inn.onField.striker;
+    inn.onField.striker = inn.onField.nonStriker;
+    inn.onField.nonStriker = tmp;
+  }
 
   if(legal){
     inn.balls = Number(inn.balls||0) + 1;
@@ -259,7 +297,9 @@ export function applyBall(state, ball){
     }
   }
 
-  const maxBalls = (state.oversPerInnings || 10) * 6;
+  const inSuper = Number(state.inningsIndex||0) >= 2;
+  const oversLimit = inSuper ? Number(state.superOverOvers||1) : Number(state.oversPerInnings||10);
+  const maxBalls = oversLimit * 6;
   const inningsDone = inn.wkts >= 10 || inn.balls >= maxBalls;
 
   // -----------------------------
@@ -314,6 +354,7 @@ export function applyBall(state, ball){
   };
 
   if(inningsDone && state.inningsIndex === 0){
+    // Move to innings 2
     state.inningsIndex = 1;
     if(!state.innings[1]){
       state.innings[1] = emptyInnings(state.innings[0]?.bowling || "", state.innings[0]?.batting || "");
@@ -323,8 +364,58 @@ export function applyBall(state, ball){
     const target = Number(i0.runs || 0) + 1;
     const reached = Number(inn.runs || 0) >= target;
     if(reached || inningsDone){
+      const res = computeResult();
+      // If tied and super-over enabled, start super over instead of completing
+      const soEnabled = !!(state.rules?.superOverOnTie);
+      if(res.tie && soEnabled){
+        // init super over innings (2 and 3)
+        if(!state.superOverOvers) state.superOverOvers = 1;
+        state.innings[2] = emptyInnings(i0.batting || "", i0.bowling || "");
+        state.innings[3] = emptyInnings(i0.bowling || "", i0.batting || "");
+        state.inningsIndex = 2;
+        state.status = "LIVE";
+        state.result = { tie:true, superOver:true, text:"Match tied. Super Over." };
+      } else {
+        state.status = "COMPLETED";
+        state.result = res;
+      }
+    } else {
+      state.status = "LIVE";
+    }
+  } else if(state.inningsIndex === 2){
+    // Super over - innings 1
+    if(inningsDone){
+      state.inningsIndex = 3;
+      state.status = "LIVE";
+    } else {
+      state.status = "LIVE";
+    }
+  } else if(state.inningsIndex === 3){
+    // Super over chase
+    const so1 = normalizeInnings(state.innings?.[2] || emptyInnings("",""));
+    const so2 = normalizeInnings(state.innings?.[3] || emptyInnings("",""));
+    state.innings[2] = so1;
+    state.innings[3] = so2;
+    const target = Number(so1.runs||0) + 1;
+    const reached = Number(inn.runs||0) >= target;
+    if(reached || inningsDone){
+      let winner = "";
+      let text = "";
+      if(reached){
+        winner = so2.batting || "";
+        const byWkts = Math.max(0, 10 - Number(so2.wkts||0));
+        text = `Super Over: ${winner} won by ${byWkts} wicket${byWkts===1?"":"s"}`;
+      } else {
+        if(Number(so2.runs||0) === Number(so1.runs||0)){
+          text = "Super Over tied";
+        } else {
+          winner = so1.batting || "";
+          const byRuns = Math.max(0, Number(so1.runs||0) - Number(so2.runs||0));
+          text = `Super Over: ${winner} won by ${byRuns} run${byRuns===1?"":"s"}`;
+        }
+      }
       state.status = "COMPLETED";
-      state.result = computeResult();
+      state.result = { superOver:true, winner, text, target };
     } else {
       state.status = "LIVE";
     }

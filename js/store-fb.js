@@ -72,6 +72,8 @@ export function newMatchState(tournament, m){
     oversPerInnings,
     powerplayOvers,
     maxOversPerBowler,
+    superOverOvers: Number(tournament.superOverOvers ?? 1),
+    rules: tournament.rules || {},
     status: "UPCOMING",
     inningsIndex: 0,
 
@@ -88,7 +90,10 @@ export function newMatchState(tournament, m){
     playingXI: {}, // { "TeamName":[11 players], ... }
 
     // Phase-1/2
-    toss: null
+    toss: null,
+
+    // Super Over (auto when tie and enabled)
+    superOver: null
   };
 
   st.summary = {
@@ -158,6 +163,10 @@ export async function resetMatch(FB, matchId){
     status: "UPCOMING",
     state: fresh,
     summary: fresh.summary,
+    // Clear any derived/computed fields from a previously completed match
+    awards: _f.deleteField(),
+    result: _f.deleteField(),
+    completedAt: _f.deleteField(),
     updatedAt: _f.serverTimestamp()
   });
 }
@@ -267,9 +276,9 @@ export async function addBall(FB, matchId, ball){
   if(!hasXI) throw new Error("Playing XI pending. Dono teams ke 11-11 players select karo.");
 
   // ✅ Enforce max overs per bowler (default 2 overs = 12 legal balls)
-  const maxOversPerBowler = Number(state.maxOversPerBowler ?? 2);
-  const maxBowlerBalls = Math.max(0, maxOversPerBowler * 6);
   const idx = Number(state.inningsIndex||0);
+  const maxOversPerBowler = Number((idx>=2)? 1 : (state.maxOversPerBowler ?? 2));
+  const maxBowlerBalls = Math.max(0, maxOversPerBowler * 6);
   const inn = state.innings?.[idx];
   const bowlerName = (ball.bowler || inn?.onField?.bowler || "").toString().trim();
   const type = (ball.type || "RUN").toString().toUpperCase();

@@ -3,7 +3,8 @@ import { firebaseConfig as FIREBASE_CONFIG, TOURNAMENT_ID } from "./firebase-con
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getFirestore, doc, collection, getDoc, setDoc, updateDoc, onSnapshot,
-  serverTimestamp, query, orderBy, getDocs
+  serverTimestamp, query, orderBy, getDocs,
+  deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -22,7 +23,7 @@ export function initFirebase(){
     app, db, auth,
     TOURNAMENT_ID,
     _f:{
-      doc,collection,getDoc,setDoc,updateDoc,onSnapshot,serverTimestamp,query,orderBy,getDocs,
+      doc,collection,getDoc,setDoc,updateDoc,onSnapshot,serverTimestamp,query,orderBy,getDocs,deleteField,
       signInWithEmailAndPassword,signOut,onAuthStateChanged
     }
   };

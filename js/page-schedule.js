@@ -32,7 +32,8 @@ function groupMatches(t, docs, active){
 function render(t, docs, active){
   const {byGroup, groupsToShow} = groupMatches(t, docs, active);
   const wrap = document.getElementById("scheduleWrap");
-  wrap.innerHTML = groupsToShow.map(g=>{
+
+  const groupCards = groupsToShow.map(g=>{
     const rows = byGroup[g].map(m=>{
       const st = fmtStatus(m.status);
       const action = m.status==="LIVE"
@@ -42,9 +43,9 @@ function render(t, docs, active){
       <tr>
         <td><span class="tag">${esc(m.matchId)}</span></td>
         <td>Group ${esc(m.group)}</td>
-        <td><b>${esc(m.time)}</b></td>
-        <td><b>${esc(m.a)}</b></td>
-        <td><b>${esc(m.b)}</b></td>
+        <td><b>${esc(m.time||"-")}</b></td>
+        <td><b>${esc(m.a||"-")}</b></td>
+        <td><b>${esc(m.b||"-")}</b></td>
         <td><span class="badge ${st.cls}">${st.text}</span></td>
         <td>${action}</td>
       </tr>`;
@@ -69,6 +70,51 @@ function render(t, docs, active){
         </table>
       </div>`;
   }).join("");
+
+  // Knockouts / Deciders (group not in A-D)
+  const knownGroups = new Set(Object.keys(t.groups||{}));
+  const ko = (docs||[]).filter(m=> !knownGroups.has(String(m.group||"")) );
+  ko.sort((a,b)=> String(a.matchId||"").localeCompare(String(b.matchId||"")) );
+  const koCard = ko.length? (()=>{
+    const rows = ko.map(m=>{
+      const st = fmtStatus(m.status);
+      const label = m.label || (m.stage==="SF"?"Semi Final": m.stage==="F"?"Final": (m.stage||"Knockout"));
+      const action = m.status==="LIVE"
+        ? `<a class="btn" href="scorecard.html?match=${encodeURIComponent(m.matchId)}">Watch Live</a>`
+        : `<a class="btn ghost" href="scorecard.html?match=${encodeURIComponent(m.matchId)}">${m.status==="COMPLETED"?"Scorecard":"Open"}</a>`;
+      return `
+      <tr>
+        <td><span class="tag">${esc(m.matchId)}</span></td>
+        <td>${esc(label)}</td>
+        <td><b>${esc(m.time||"-")}</b></td>
+        <td><b>${esc(m.a||"TBD")}</b></td>
+        <td><b>${esc(m.b||"TBD")}</b></td>
+        <td><span class="badge ${st.cls}">${st.text}</span></td>
+        <td>${action}</td>
+      </tr>`;
+    }).join("");
+
+    return `
+      <div class="card" style="margin-top:14px">
+        <div class="row wrap">
+          <div>
+            <div class="h1" style="font-size:18px">Knockouts</div>
+            <div class="muted small">${ko.length} matches</div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Match</th><th>Stage</th><th>Time</th><th>Team A</th><th>Team B</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  })() : "";
+
+  wrap.innerHTML = groupCards + koCard;
 }
 
 (async function(){
