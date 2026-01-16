@@ -262,14 +262,72 @@ export function applyBall(state, ball){
   const maxBalls = (state.oversPerInnings || 10) * 6;
   const inningsDone = inn.wkts >= 10 || inn.balls >= maxBalls;
 
+  // -----------------------------
+  // ✅ Automatic match completion logic
+  // - Innings 1 ends (10 overs / all out) -> auto move to innings 2
+  // - Innings 2 ends when:
+  //    a) target achieved
+  //    b) overs complete / all out
+  //    c) tie at end
+  // -----------------------------
+
+  const i0 = normalizeInnings(state.innings?.[0] || emptyInnings("", ""));
+  const i1 = normalizeInnings(state.innings?.[1] || emptyInnings("", ""));
+  state.innings[0] = i0;
+  state.innings[1] = i1;
+
+  const computeResult = ()=>{
+    // Only meaningful after innings 2 starts
+    const target = Number(i0.runs || 0) + 1;
+    const chasing = i1;
+    const reached = Number(chasing.runs || 0) >= target;
+    const byWkts = Math.max(0, 10 - Number(chasing.wkts || 0));
+    const byRuns = Math.max(0, Number(i0.runs || 0) - Number(chasing.runs || 0));
+
+    let text = "";
+    let winner = "";
+    let tie = false;
+
+    if(reached){
+      winner = chasing.batting || "";
+      text = `${winner} won by ${byWkts} wicket${byWkts===1?"":"s"}`;
+    } else {
+      // innings 2 finished without reaching target
+      if(Number(chasing.runs||0) === Number(i0.runs||0)){
+        tie = true;
+        text = "Match tied";
+      } else {
+        winner = i0.batting || "";
+        text = `${winner} won by ${byRuns} run${byRuns===1?"":"s"}`;
+      }
+    }
+
+    return {
+      target,
+      reached,
+      tie,
+      winner,
+      byRuns: reached ? 0 : byRuns,
+      byWkts: reached ? byWkts : 0,
+      text
+    };
+  };
+
   if(inningsDone && state.inningsIndex === 0){
     state.inningsIndex = 1;
     if(!state.innings[1]){
       state.innings[1] = emptyInnings(state.innings[0]?.bowling || "", state.innings[0]?.batting || "");
     }
     state.status = "LIVE";
-  } else if(inningsDone && state.inningsIndex === 1){
-    state.status = "COMPLETED";
+  } else if(state.inningsIndex === 1){
+    const target = Number(i0.runs || 0) + 1;
+    const reached = Number(inn.runs || 0) >= target;
+    if(reached || inningsDone){
+      state.status = "COMPLETED";
+      state.result = computeResult();
+    } else {
+      state.status = "LIVE";
+    }
   } else {
     state.status = "LIVE";
   }

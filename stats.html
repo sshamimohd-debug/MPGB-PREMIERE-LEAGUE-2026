@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#0b1020"/>
   <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="shortcut icon" href="favicon.ico">
   <link rel="stylesheet" href="css/theme-dark.css"/>
   <title>MPGB Premier League - Player Statistics</title>
 </head>
@@ -58,5 +60,12 @@
   </div>
 
   <script type="module" src="js/page-stats.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

@@ -180,6 +180,45 @@ export function renderScorecard(doc){
     `;
   }).join("");
 
-  const result = doc.result?.text ? `<div class="card" style="margin-top:14px"><div class="badge done">Result</div><div style="margin-top:8px"><b>${esc(doc.result.text)}</b></div></div>` : "";
-  return result + tabs + blocks;
+  const awards = (()=>{
+    const a = doc.awards;
+    if(!a) return "";
+    const mom = a.mom;
+    const six = a.sixerKing;
+    const bb = a.bestBowler;
+    const res = doc.result?.text ? `<div class="muted small" style="margin-top:8px">Result</div><div style="margin-top:4px"><b>${esc(doc.result.text)}</b></div>` : "";
+    return `
+      <div class="card" style="margin-top:14px; padding:12px">
+        <div class="row wrap" style="justify-content:space-between; align-items:flex-start; gap:10px">
+          <div>
+            <div class="h1" style="font-size:14px">🏆 Match Awards</div>
+            ${res}
+          </div>
+          <div class="row wrap" style="gap:10px">
+            <div class="card" style="padding:10px; min-width:180px">
+              <div class="muted small">Man of the Match</div>
+              <div style="margin-top:4px"><b>${esc(mom?.name||"-")}</b></div>
+              <div class="muted small">${esc(mom?.team||"")}${mom?.score!=null?` • Score ${esc(mom.score)}`:""}</div>
+            </div>
+            <div class="card" style="padding:10px; min-width:180px">
+              <div class="muted small">Sixer King</div>
+              <div style="margin-top:4px"><b>${esc(six?.name||"-")}</b></div>
+              <div class="muted small">${esc(six?.team||"")}${six?.sixes!=null?` • 6s ${esc(six.sixes)}`:""}</div>
+            </div>
+            <div class="card" style="padding:10px; min-width:180px">
+              <div class="muted small">Best Bowler</div>
+              <div style="margin-top:4px"><b>${esc(bb?.name||"-")}</b></div>
+              <div class="muted small">${esc(bb?.team||"")}${bb?.wickets!=null?` • ${esc(bb.wickets)}W`:""}${bb?.econ!=null?` • Eco ${esc(bb.econ)}`:""}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  })();
+
+  const resultOnly = (!doc.awards && doc.result?.text)
+    ? `<div class="card" style="margin-top:14px"><div class="badge done">Result</div><div style="margin-top:8px"><b>${esc(doc.result.text)}</b></div></div>`
+    : "";
+
+  return awards + resultOnly + tabs + blocks;
 }

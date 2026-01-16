@@ -120,6 +120,10 @@ export async function setMatchStatus(FB, matchId, status){
   let awards = docData.awards || null;
   if(status === "COMPLETED"){
     awards = computeAwardsFromState(state);
+    // Ensure result is present (manual completion)
+    if(!docData.result && state?.result?.text){
+      docData.result = { ...(state.result||{}), computedAt: Date.now() };
+    }
   }
 
   await _f.updateDoc(mRef, {
@@ -127,6 +131,7 @@ export async function setMatchStatus(FB, matchId, status){
     state,
     summary: state.summary,
     ...(awards ? { awards } : {}),
+    ...(docData.result ? { result: docData.result } : {}),
     updatedAt: _f.serverTimestamp()
   });
 }
@@ -247,6 +252,11 @@ export async function addBall(FB, matchId, ball){
   const state = docData.state;
   if(!state) throw new Error("State missing. Reset match first.");
 
+  // ✅ Block scoring after completion (auto-complete or manual)
+  if((docData.status||state.status) === "COMPLETED"){
+    throw new Error("Match COMPLETED. Ab scoring nahi hogi.");
+  }
+
   // ✅ Enforce match setup before scoring
   // If someone mistakenly logs a ball early, the match flips to LIVE and the UI setup cards can hide.
   // We block scoring until Toss + Playing XI are saved.
@@ -283,12 +293,33 @@ export async function addBall(FB, matchId, ball){
 
   applyBall(state, ball);
 
-  await _f.updateDoc(mRef, {
+  // ✅ If chase completed / overs finished / tie -> auto mark COMPLETED and compute awards + result
+  let patch = {
     status: state.status,
     state,
     summary: state.summary,
     updatedAt: _f.serverTimestamp()
-  });
+  };
+
+  if(state.status === "COMPLETED"){
+    // awards (persist)
+    const awards = computeAwardsFromState(state);
+    patch.awards = awards;
+
+    // result text (persist)
+    if(state.result?.text){
+      patch.result = {
+        ...(state.result||{}),
+        computedAt: Date.now()
+      };
+      // keep doc-level convenience for renderers
+      state.summary = state.summary || {};
+      state.summary.resultText = state.result.text;
+      patch.summary = state.summary;
+    }
+  }
+
+  await _f.updateDoc(mRef, patch);
 }
 
 // -----------------------------

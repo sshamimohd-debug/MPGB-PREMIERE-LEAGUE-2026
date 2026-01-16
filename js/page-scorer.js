@@ -14,6 +14,7 @@ const matchId = params.get("matchId") || params.get("match") || "A1";
 let TOURNAMENT = null;
 let SQUADS = {}; // team -> [15]
 let CURRENT_DOC = null;
+let LAST_STATUS = null;
 let _tossMounted = false;
 let _xiMounted = false;
 
@@ -681,6 +682,16 @@ function render(doc){
 
   $("sTitle").textContent = `Scorer • Match ${doc.matchId || matchId}`;
   $("sMeta").textContent = `${doc.a} vs ${doc.b} • Group ${doc.group||"-"} • Time ${doc.time||"-"} • Status ${doc.status||"UPCOMING"}`;
+
+  // ✅ Auto completion popup (chase achieved / overs complete / tie)
+  if(LAST_STATUS && LAST_STATUS !== "COMPLETED" && doc.status === "COMPLETED"){
+    const key = `awardsShown:${matchId}:${doc.updatedAt?.seconds||""}`;
+    if(!localStorage.getItem(key)){
+      if(doc.awards) showAwardsPopup(doc.awards);
+      localStorage.setItem(key, "1");
+    }
+  }
+  LAST_STATUS = doc.status;
 
   mountTossCard();
   updateTossUI(doc);
